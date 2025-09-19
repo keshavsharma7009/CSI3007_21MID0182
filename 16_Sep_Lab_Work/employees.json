@@ -1,0 +1,22 @@
+{
+    "emp1": {
+        "name": "Keshav",
+        "age": 22,
+        "department": "IT"
+    },
+    "emp2": {
+        "name": "Poorvi",
+        "age": 24,
+        "department": "HR"
+    },
+    "emp3": {
+        "name": "Jaishwant",
+        "age": 23,
+        "department": "Finance"
+    },
+    "emp4": {
+        "name": "Rishabh",
+        "age": 25,
+        "department": "Marketing"
+    }
+}
