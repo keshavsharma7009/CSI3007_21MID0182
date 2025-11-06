@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Calculator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="calculator" role="application" aria-label="Calculator">
+    <!-- Display -->
+    <div class="display-screen" aria-hidden="false">
+      <input type="text" id="result" class="display" readonly value="0" aria-live="polite" aria-label="Calculator display">
+    </div>
+
+    <!-- Buttons Grid -->
+    <div class="buttons" role="group" aria-label="Calculator buttons">
+      <button class="btn clear" onclick="clearDisplay()" aria-label="Clear">C</button>
+      <button class="btn clear" onclick="deleteLast()" aria-label="Backspace">⌫</button>
+      <button class="btn operator" onclick="appendToDisplay('/')" aria-label="Divide">÷</button>
+      <button class="btn operator" onclick="appendToDisplay('*')" aria-label="Multiply">×</button>
+
+      <button class="btn num" onclick="appendToDisplay('7')" aria-label="Seven">7</button>
+      <button class="btn num" onclick="appendToDisplay('8')" aria-label="Eight">8</button>
+      <button class="btn num" onclick="appendToDisplay('9')" aria-label="Nine">9</button>
+      <button class="btn operator" onclick="appendToDisplay('-')" aria-label="Minus">−</button>
+
+      <button class="btn num" onclick="appendToDisplay('4')" aria-label="Four">4</button>
+      <button class="btn num" onclick="appendToDisplay('5')" aria-label="Five">5</button>
+      <button class="btn num" onclick="appendToDisplay('6')" aria-label="Six">6</button>
+      <button class="btn operator" onclick="appendToDisplay('+')" aria-label="Plus">+</button>
+
+      <button class="btn num" onclick="appendToDisplay('1')" aria-label="One">1</button>
+      <button class="btn num" onclick="appendToDisplay('2')" aria-label="Two">2</button>
+      <button class="btn num" onclick="appendToDisplay('3')" aria-label="Three">3</button>
+      <button class="btn equal" onclick="calculateResult()" aria-label="Equals">=</button>
+
+      <button class="btn num zero" onclick="appendToDisplay('0')" aria-label="Zero">0</button>
+      <button class="btn num" onclick="appendToDisplay('.')" aria-label="Decimal">.</button>
+    </div>
+  </div>
+
+  <script>
+    // Elements
+    const display = document.getElementById('result');
+
+    // Simple audio click using Web Audio API (no external file)
+    const audioCtx = typeof AudioContext !== 'undefined' ? new AudioContext() : null;
+    function playClick() {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = 'square';
+      o.frequency.setValueAtTime(1200, now);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(0.05, now + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      o.connect(g);
+      g.connect(audioCtx.destination);
+      o.start(now);
+      o.stop(now + 0.09);
+    }
+
+    // Append input to display (handles replacement of initial 0)
+    function appendToDisplay(value) {
+      // prevent multiple operators in a row
+      const lastChar = display.value[display.value.length - 1];
+      const operators = ['+', '-', '*', '/', '.'];
+
+      // If user inputs an operator but last char is operator, replace it (except '.' rules)
+      if (operators.includes(value) && operators.includes(lastChar) && !(value === '.' && lastChar !== '.')) {
+        // allow minus after operator only if it's minus sign used for negative numbers (rare)
+        if (value !== '.' ) {
+          display.value = display.value.slice(0, -1) + value;
+          return;
+        }
+      }
+
+      if (display.value === '0' && value !== '.') {
+        display.value = value;
+      } else {
+        display.value += value;
+      }
+    }
+
+    function clearDisplay() {
+      display.value = '0';
+      saveHistoryEntry('Cleared');
+    }
+
+    function deleteLast() {
+      display.value = display.value.slice(0, -1) || '0';
+    }
+
+    function calculateResult() {
+      try {
+        // replace visual symbols (if any)
+        const sanitized = display.value
+          .replace(/×/g, '*')
+          .replace(/÷/g, '/')
+          .replace(/−/g, '-');
+
+        // Basic safety: allow only numbers, operators, parentheses, decimal, spaces
+        if (!/^[0-9+\-*/().\s]+$/.test(sanitized)) throw new Error('Invalid expression');
+
+        let result = eval(sanitized);
+
+        if (typeof result === 'number') {
+          // Trim float precision
+          result = result % 1 === 0 ? result : parseFloat(result.toFixed(8));
+        }
+        display.value = String(result);
+        saveHistoryEntry(sanitized + ' = ' + display.value);
+      } catch (err) {
+        display.value = 'Error';
+        setTimeout(() => display.value = '0', 900);
+      }
+    }
+
+    // Keyboard support
+    document.addEventListener('keydown', (e) => {
+      const key = e.key;
+      if ((key >= '0' && key <= '9') || key === '.') {
+        appendToDisplay(key);
+      } else if (['+', '-', '*', '/','Enter','Backspace','Escape'].includes(key)) {
+        if (key === 'Enter') { calculateResult(); e.preventDefault(); }
+        else if (key === 'Backspace') deleteLast();
+        else if (key === 'Escape') clearDisplay();
+        else appendToDisplay(key);
+      }
+      pressFeedback();
+    });
+
+    // Attach click/vibration/audio to buttons
+    document.querySelectorAll('.btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // play click sound
+        try { playClick(); } catch(e){}
+
+        // small vibration on supported devices
+        if (navigator.vibrate) navigator.vibrate(10);
+
+        // focus the display (so keyboard still works)
+        display.focus();
+      });
+      // visual press feedback for mouse/touch
+      btn.addEventListener('pointerdown', () => btn.classList.add('pressed'));
+      btn.addEventListener('pointerup', () => btn.classList.remove('pressed'));
+      btn.addEventListener('pointerleave', () => btn.classList.remove('pressed'));
+    });
+
+    // Optional: small transient animation for keyboard
+    function pressFeedback(){
+      // noop - handled above on pointer events
+    }
+
+    // History stored in localStorage (simple)
+    const HISTORY_KEY = 'calculator.history.v1';
+    function saveHistoryEntry(text) {
+      try {
+        const arr = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        arr.unshift({ text, t: Date.now() });
+        if (arr.length > 30) arr.length = 30;
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(arr));
+      } catch(e){}
+    }
+
+    // On load: make display accessible and restore focus
+    window.addEventListener('load', () => {
+      display.setAttribute('tabindex', '-1');
+      // warm audio context on first user gesture (optional)
+      document.body.addEventListener('pointerdown', function warmAudio() {
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(()=>{});
+        document.body.removeEventListener('pointerdown', warmAudio);
+      });
+
+      // Prevent long property selection on mobile when pressing buttons
+      display.addEventListener('selectstart', (e)=> e.preventDefault());
+    });
+  </script>
+</body>
+</html>
